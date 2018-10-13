@@ -1,5 +1,5 @@
 CROSS	?= 
-CC		:= $(CROSS)-gcc
+CC	:= $(CROSS)-gcc
 
 all:liblwefence.so test
 
