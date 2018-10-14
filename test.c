@@ -63,6 +63,7 @@ static int
 freeMemory(void)
 {
 	free(allocation);
+	allocation = NULL;
 	return 0;
 }
 
@@ -121,10 +122,12 @@ static struct diagnostic diagnostics[] = {
 		read1, 1,
 		"Read overrun: This test reads beyond the end of the buffer."
 	},
+#if 1
 	{
 		freeMemory, 0,
 		"Free memory: This test frees the allocated memory."
 	},
+	
 	{
 		protectBelow, 0,
 		"Protect below: This sets Electric Fence to protect\n"
@@ -153,6 +156,7 @@ static struct diagnostic diagnostics[] = {
 		freeMemory, 0,
 		"Free memory: This test frees the allocated memory."
 	},
+#endif
 	{
 		0, 0, 0
 	}
