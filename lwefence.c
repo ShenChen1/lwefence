@@ -83,7 +83,7 @@ static void *__reload_valloc(size_t size)
 	} \
 	while(0)
 
-		
+
 #define LWE_DEBUG(fmt, ...) \
 	do \
 	{ \
@@ -309,7 +309,7 @@ static void __attribute__((constructor)) __lwe_pre_init()
 {
 	if (g_lwe_status == LWE_OPEN_CHECK_STATUS)
 	{
-		LWE_INFO("lwefence run in %s overflow check !!!\n", 
+		LWE_INFO("lwefence run in %s overflow check !!!\n",
 			g_lwe_mode == LWE_LEFT_OVERFLOW_MODE ? "left" : "right");
 
 		s_lwe_malloc_func = __lwe_malloc;
