@@ -11,8 +11,8 @@ struct diagnostic {
 	const char *	explanation;
 };
 
-extern int g_lwefence_check_mode;
-extern int g_lwefence_check_start;
+extern int g_lwe_mode;
+extern int g_lwe_status;
 
 static sigjmp_buf	env;
 static buffer_size = 1;
@@ -70,7 +70,7 @@ freeMemory(void)
 static int
 protectBelow(void)
 {
-	g_lwefence_check_mode = 1;
+	g_lwe_mode = 1;
 	return 0;
 }
 
@@ -171,12 +171,12 @@ int
 main(int argc, char * * argv)
 {
 	static const struct diagnostic *diag;
-	g_lwefence_check_start = 1;
-	
+	g_lwe_status = 1;
+
 	for (buffer_size = 1; buffer_size < 100000; buffer_size++)
 	{
 		diag = diagnostics;
-		g_lwefence_check_mode = 0;
+		g_lwe_mode = 0;
 
 		while (diag->explanation != 0)
 		{
