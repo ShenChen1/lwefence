@@ -1,5 +1,5 @@
 CROSS	?= 
-CC		:= $(CROSS)-gcc
+CC	:= $(CROSS)-gcc
 CFLAGS	:= -O2 -g
 
 all:liblwefence.so test
