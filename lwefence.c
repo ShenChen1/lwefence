@@ -127,9 +127,9 @@ static lwe_valloc_func s_lwe_valloc_func     = __reload_valloc;
 static int __lwe_printf(int level, const char *fmt, ...)
 {
     int n = 0;
-    va_list ap;
 
     if (level <= g_lwe_loglv) {
+        va_list ap;
         va_start(ap, fmt);
         n = vprintf(fmt, ap);
         va_end(ap);
