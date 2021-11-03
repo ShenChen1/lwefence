@@ -5,39 +5,67 @@
 #include <setjmp.h>
 #include <signal.h>
 
+/*
+ * Lightweight Electric Fence confidence tests.
+ * Make sure all of the various functions of Lightweight Electric Fence work correctly.
+ */
+
+#ifndef	PAGE_PROTECTION_VIOLATED_SIGNAL
+#if defined(__FreeBSD_kernel__) || defined(__FreeBSD__)
+#define EXTRA_PAGE_PROTECTION_VIOLATED_SIGNAL SIGBUS
+#endif
+#define	PAGE_PROTECTION_VIOLATED_SIGNAL SIGSEGV
+#endif
+
 struct diagnostic {
 	int		(*test)(void);
 	int		expectedStatus;
 	const char *	explanation;
 };
 
-extern int g_lwe_mode;
-extern int g_lwe_status;
+extern int	EF_PROTECT_BELOW;
+extern int	EF_ALIGNMENT;
 
 static sigjmp_buf	env;
-static buffer_size = 1;
 
 /*
  * There is still too little standardization of the arguments and return
  * type of signal handler functions.
  */
-static void segmentationFaultHandler(int signalNumbe)
-{
-	signal(SIGSEGV, SIG_DFL);
+static
+void
+segmentationFaultHandler(
+int signalNumber
+#if ( defined(_AIX) )
+, ...
+#endif
+)
+ {
+	signal(PAGE_PROTECTION_VIOLATED_SIGNAL, SIG_DFL);
+#ifdef EXTRA_PAGE_PROTECTION_VIOLATED_SIGNAL
+	signal(EXTRA_PAGE_PROTECTION_VIOLATED_SIGNAL, SIG_DFL);
+#endif
 	siglongjmp(env, 1);
 }
 
 static int
 gotSegmentationFault(int (*test)(void))
 {
-	if (sigsetjmp(env,1) == 0) 
-	{
+	if ( sigsetjmp(env,1) == 0 ) {
 		int			status;
 
-		signal(SIGSEGV
-		,segmentationFaultHandler);
+		signal(PAGE_PROTECTION_VIOLATED_SIGNAL,
+			segmentationFaultHandler);
+#ifdef EXTRA_PAGE_PROTECTION_VIOLATED_SIGNAL
+		signal(EXTRA_PAGE_PROTECTION_VIOLATED_SIGNAL,
+			segmentationFaultHandler);
+#endif
+
 		status = (*test)();
-		signal(SIGSEGV, SIG_DFL);
+		signal(PAGE_PROTECTION_VIOLATED_SIGNAL, SIG_DFL);
+#ifdef EXTRA_PAGE_PROTECTION_VIOLATED_SIGNAL
+		signal(EXTRA_PAGE_PROTECTION_VIOLATED_SIGNAL, SIG_DFL);
+#endif
 		return status;
 	}
 	else
@@ -51,9 +79,9 @@ char	c;
 static int
 allocateMemory(void)
 {
-	allocation = (char *)malloc(buffer_size);
+	allocation = (char *)malloc(1);
 
-	if (allocation != 0)
+	if ( allocation != 0 )
 		return 0;
 	else
 		return 1;
@@ -63,14 +91,13 @@ static int
 freeMemory(void)
 {
 	free(allocation);
-	allocation = NULL;
 	return 0;
 }
 
 static int
 protectBelow(void)
 {
-	g_lwe_mode = 1;
+	EF_PROTECT_BELOW = 1;
 	return 0;
 }
 
@@ -93,7 +120,7 @@ write0(void)
 static int
 read1(void)
 {
-	c = allocation[buffer_size];
+	c = allocation[1];
 
 	return 0;
 }
@@ -122,12 +149,10 @@ static struct diagnostic diagnostics[] = {
 		read1, 1,
 		"Read overrun: This test reads beyond the end of the buffer."
 	},
-#if 1
 	{
 		freeMemory, 0,
 		"Free memory: This test frees the allocated memory."
 	},
-	
 	{
 		protectBelow, 0,
 		"Protect below: This sets Electric Fence to protect\n"
@@ -153,51 +178,37 @@ static struct diagnostic diagnostics[] = {
 		" buffer."
 	},
 	{
-		freeMemory, 0,
-		"Free memory: This test frees the allocated memory."
-	},
-#endif
-	{
 		0, 0, 0
 	}
 };
 
 static const char	failedTest[]
- = "test failed.\n";
+ = "Lightweight Electric Fence confidence test failed.\n";
 
 static const char	newline = '\n';
 
 int
 main(int argc, char * * argv)
 {
-	static const struct diagnostic *diag;
-	g_lwe_status = 1;
+	static const struct diagnostic *	diag = diagnostics;
+	EF_PROTECT_BELOW = 0;
 
-	for (buffer_size = 1; buffer_size < 100000; buffer_size++)
-	{
-		diag = diagnostics;
-		g_lwe_mode = 0;
+	while ( diag->explanation != 0 ) {
+		int	status = gotSegmentationFault(diag->test);
 
-		while (diag->explanation != 0)
-		{
-			int	status = gotSegmentationFault(diag->test);
-
-			if (status != diag->expectedStatus)
-			{
-				/*
-				 * Don't use stdio to print here, because stdio
-				 * uses malloc() and we've just proven that malloc()
-				 * is broken. Also, use _exit() instead of exit(),
-				 * because _exit() doesn't flush stdio.
-				 */
-				write(2, failedTest, sizeof(failedTest) - 1);
-				write(2, diag->explanation, strlen(diag->explanation));
-				write(2, &newline, 1);
-				_exit(-1);
-			}
-			diag++;
+		if ( status != diag->expectedStatus ) {
+			/*
+			 * Don't use stdio to print here, because stdio
+			 * uses malloc() and we've just proven that malloc()
+			 * is broken. Also, use _exit() instead of exit(),
+			 * because _exit() doesn't flush stdio.
+			 */
+			write(2, failedTest, sizeof(failedTest) - 1);
+			write(2, diag->explanation, strlen(diag->explanation));
+			write(2, &newline, 1);
+			_exit(-1);
 		}
+		diag++;
 	}
-
 	return 0;
 }
