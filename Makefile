@@ -1,14 +1,14 @@
-CROSS	?=
-CC		:= $(CROSS)-gcc
-CFLAGS	:= -O2 -g -Wall -Werror
+CROSS   ?=
+CC      := $(CROSS)-gcc
+CFLAGS  := -Os -g -Wall -Werror
 
-all: lwefence.so
+all: clean test
 
 clean:
-	rm -rf lwefence.so test
+	rm -rf *.so test
 
-%.so: %.c
-	$(CC) $(CFLAGS) -fPIC -shared -c $< -o $@ -ldl
+liblwefence.so: lwefence.c
+	$(CC) $(CFLAGS) -fPIC -shared  $< -o $@ 
 
-test: test.c
-	$(CC) $< -o $@ lwefence.so -ldl
+test: test.c liblwefence.so
+	$(CC) $< -o $@ -llwefence -L.

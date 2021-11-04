@@ -1,5 +1,5 @@
 #ifndef DDEBUG
-#define DDEBUG 0
+#define DDEBUG 1
 #endif
 
 #define _GNU_SOURCE
@@ -19,31 +19,10 @@
 #if DDEBUG
 #define dd(...)                    \
     fprintf(stderr, "lwefence: "); \
-    fprintf(stderr, __VA_ARGS__);  \
-    fprintf(stderr, " at %s line %d.\n", __FILE__, __LINE__)
+    fprintf(stderr, __VA_ARGS__);
 #else
 #define dd(...)
 #endif
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-#define declare_func_handle(name) \
-    static name##_func_t orig_##name = NULL;
-
-#define init_orig(name)                                                                              \
-    if (libc_handle == NULL) {                                                                       \
-        libc_handle = RTLD_NEXT;                                                                     \
-    }                                                                                                \
-    if (orig_##name == NULL) {                                                                       \
-        orig_##name = dlsym(libc_handle, #name);                                                     \
-        if (orig_##name == NULL) {                                                                   \
-            fprintf(stderr, "mockeagain: could not find the underlying " #name ": %s\n", dlerror()); \
-            exit(1);                                                                                 \
-        }                                                                                            \
-    }
-
-typedef void *(*malloc_func_t)(size_t);
-typedef void (*free_func_t)(void *);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -78,6 +57,9 @@ typedef struct {
     unsigned long align_addr;
 } lwe_node;
 
+void *__libc_malloc(size_t size);
+void __libc_free(void *ptr);
+
 /*
  * EF_PROTECT_BELOW is used to modify the behavior of the allocator. When
  * its value is non-zero, the allocator will place an inaccessable page
@@ -89,10 +71,6 @@ typedef struct {
  * run-time
  */
 int EF_PROTECT_BELOW = LWE_RIGHT_OVERFLOW_MODE;
-
-static void *libc_handle = NULL;
-declare_func_handle(malloc);
-declare_func_handle(free);
 
 static void *__lwe_setup_overflow(unsigned long real_addr, unsigned long real_size, unsigned long user_size)
 {
@@ -157,9 +135,8 @@ static void *__lwe_malloc(size_t user_size)
     void *real_addr;
     size_t real_size;
 
-    init_orig(malloc);
     real_size = RESIZE(user_size);
-    real_addr = orig_malloc(real_size);
+    real_addr = __libc_malloc(real_size);
     if (real_addr == NULL) {
         return NULL;
     }
@@ -171,9 +148,8 @@ static void __lwe_free(void *ptr)
 {
     void *real_addr;
 
-    init_orig(free);
     real_addr = __lwe_cancel_overflow((unsigned long)ptr);
-    orig_free(real_addr);
+    __libc_free(real_addr);
 }
 
 static void *__lwe_memalign(size_t alignment, size_t size)
@@ -183,10 +159,9 @@ static void *__lwe_memalign(size_t alignment, size_t size)
     size_t real_size;
     size_t user_size = size;
 
-    init_orig(malloc);
     user_size = ROUNDUP(user_size, alignment);
     real_size = RESIZE(user_size);
-    real_addr = orig_malloc(real_size);
+    real_addr = __libc_malloc(real_size);
     if (real_addr == NULL) {
         return NULL;
     }
@@ -241,7 +216,7 @@ int posix_memalign(void **memptr, size_t alignment, size_t size)
     void *ptr;
 
     ptr = __lwe_memalign(alignment, size);
-    dd("[%s](%p, %zu, %zu)\n", __func__, ptr, alignment, size, ptr);
+    dd("[%s](%p, %zu, %zu)\n", __func__, ptr, alignment, size);
     if (ptr) {
         *memptr = ptr;
         return 0;
